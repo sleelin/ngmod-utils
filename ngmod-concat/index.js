@@ -1,5 +1,6 @@
 /*
  * ngmod-concat
+ * https://bitbucket.org/sleelin/ngmod-concat
  *
  * Copyright (c) 2015 S. Lee-Lindsay
  * Licensed under the GNU license.

@@ -2,7 +2,7 @@
   "name": "ngmod-concat",
   "description": "Parse streamed JavaScript files for AngularJS module definitions, and emit a single new file for each detected module, with concatenated contents of other files referencing the same module",
   "version": "1.0.0",
-  "homepage": "https://github.com/sleelin/ngmod-concat",
+  "homepage": "https://bitbucket.org/sleelin/ngmod-concat",
   "private": true,
   "author": {
     "name": "S. Lee-Lindsay",
@@ -10,15 +10,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sleelin/ngmod-concat.git"
+    "url": "https://bitbucket.org/sleelin/ngmod-concat.git"
   },
   "bugs": {
-    "url": "https://github.com/sleelin/ngmod-concat/issues"
+    "url": "https://bitbucket.org/sleelin/ngmod-concat/issues"
   },
   "licenses": [
     {
       "type": "GNU",
-      "url": "https://github.com/sleelin/ngmod-concat/blob/master/LICENSE"
+      "url": "https://bitbucket.org/sleelin/ngmod-concat/blob/master/LICENSE"
     }
   ],
   "engines": {
