@@ -1,5 +1,6 @@
 /*
  * ngmod-templateurl
+ * https://bitbucket.org/sleelin/ngmod-templateurl
  *
  * Copyright (c) 2015 S. Lee-Lindsay
  * Licensed under the GNU license.

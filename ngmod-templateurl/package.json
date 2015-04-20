@@ -2,7 +2,7 @@
   "name": "ngmod-templateurl",
   "description": "Parse streamed JavaScript files for templateUrl properties (used in AngularJS directive definition objects), and emit template files with paths matching expected templateUrl",
   "version": "1.0.0",
-  "homepage": "https://github.com/sleelin/ngmod-templateurl",
+  "homepage": "https://bitbucket.org/sleelin/ngmod-templateurl",
   "private": true,
   "author": {
     "name": "S. Lee-Lindsay",
@@ -10,15 +10,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sleelin/ngmod-templateurl.git"
+    "url": "https://bitbucket.org/sleelin/ngmod-templateurl.git"
   },
   "bugs": {
-    "url": "https://github.com/sleelin/ngmod-templateurl/issues"
+    "url": "https://bitbucket.org/sleelin/ngmod-templateurl/issues"
   },
   "licenses": [
     {
       "type": "GNU",
-      "url": "https://github.com/sleelin/ngmod-templateurl/blob/master/LICENSE"
+      "url": "https://bitbucket.org/sleelin/ngmod-templateurl/blob/master/LICENSE"
     }
   ],
 
