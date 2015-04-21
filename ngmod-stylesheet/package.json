@@ -1,0 +1,41 @@
+{
+  "name": "ngmod-stylesheet",
+  "description": "Parse streamed JavaScript files for AngularJS module definitions and emit CSS files with concatenated contents of all CSS files detected within the module directory",
+  "version": "1.0.0",
+  "homepage": "https://bitbucket.org/sleelin/ngmod-stylesheet",
+  "private": true,
+  "author": {
+    "name": "S. Lee-Lindsay",
+    "email": "sleelin@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://bitbucket.org/sleelin/ngmod-stylesheet.git"
+  },
+  "bugs": {
+    "url": "https://bitbucket.org/sleelin/ngmod-stylesheet/issues"
+  },
+  "licenses": [
+    {
+      "type": "GNU",
+      "url": "https://bitbucket.org/sleelin/ngmod-stylesheet/blob/master/LICENSE"
+    }
+  ],
+  "engines": {
+    "node": ">= 0.12.0"
+  },
+  "dependencies": {
+    "astra": "^1.0.1",
+    "esprima": "*",
+    "event-stream": "^3.3.0",
+    "gulp-util": "^3.0.4",
+    "lodash": "^3.6.0",
+    "map-stream": "0.0.5",
+    "through2": "^0.6.5",
+    "vinyl": "^0.4.6",
+    "vinyl-fs": "^1.0.0"
+  },
+  "devDependencies": {
+    "gulp": "*"
+  }
+}
