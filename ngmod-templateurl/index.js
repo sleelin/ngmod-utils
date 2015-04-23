@@ -26,10 +26,15 @@ var path = require("path"),
  * @returns {Stream.Transform}
  */
 module.exports = function (options) {
-    var opts = _.merge({verbose: true}, options);
+    var opts = _.merge({
+        urlbase: "",
+        verbose: true
+    }, options);
 
     return through.obj(function (file, enc, next) {
         var stream = this;
+
+        this.push(file);
 
         try {
             // Parse source file contents and traverse AST, searching for templateUrl string literals
@@ -45,26 +50,26 @@ module.exports = function (options) {
                     // If sibling file matches templateUrl's filename, push it to the output stream with templateUrl's path
                     if (path.basename(file.path) === path.basename(chunk.value.value)) {
                         file = file.clone();
-                        file.path = path.join(path.dirname(file.base), chunk.value.value);
+                        file.path = path.join(file.cwd, path.relative(opts.urlbase, chunk.value.value));
 
-                        if (opts.verbose) gutil.log("Detected templateUrl source for", gutil.colors.cyan(file.relative));
+                        if (opts.verbose) {
+                            gutil.log("Detected templateUrl source for", gutil.colors.cyan(file.relative));
+                        }
 
                         stream.push(file);
-                    } else {
-                        // Otherwise, move to next file
-                        next();
                     }
-                })).on("end", function () {
-                    // Process next matching templateUrl chunk only after current sibling files are checked
+
                     next();
+                })).on("end", function () {
+                    next(); // Go to next templateUrl chunk
                 });
             }).run(function () {
                 // Process next file in the stream only when the complete AST has been traversed for matches
                 next();
             });
         } catch (ex) {
-            // Will catch exception thrown when a file does not contain valid JavaScript to parse
-            next(ex, null);
+            // Not a JavaScript file, pass down the stream
+            next();
         }
     });
 }
