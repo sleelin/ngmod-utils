@@ -19,12 +19,16 @@ var path = require("path"),
 
 module.exports = function (options) {
     var opts = _.merge({verbose: true}, options || {}),
-        files = [];
+        modules = [];
 
     return through.obj(function transform(file, enc, next) {
+        var stream = this;
+
+        stream.push(file);
+
         try {
             // Parse source file contents and traverse AST, searching for angular module definitions
-            astra(esprima.parse(file.contents.toString())).when({
+            astra(esprima.parse(file.contents.toString()), true).when({
                 type: "CallExpression",
                 callee: {
                     type: "MemberExpression",
@@ -32,45 +36,46 @@ module.exports = function (options) {
                     property: {type: "Identifier", name: "module"}
                 },
                 arguments: []
-            }, function (chunk) {
+            }, function (chunk, next) {
                 if (chunk.arguments.length === 2) {
-                    files[files.push(file.clone({contents: false}))-1].ngmodule = chunk.arguments[0].value;
+                    modules[modules.push(file.clone({contents: false}))-1].ngmodule = chunk.arguments[0].value;
                 }
-            }).run();
+
+                next();
+            }).run(function () {
+                var paths = _.chain(modules).pluck("relative").map(path.dirname);
+
+                merge(modules.map(function (file) {
+                    var relativeDir = path.dirname(file.relative),
+                        stylesheets = [];
+
+                    return fs.src([path.join("**", "*.css")].concat(excludes(paths.without(relativeDir), relativeDir)), {
+                        cwd: path.dirname(file.path),
+                        base: path.dirname(file.path)
+                    }).pipe(map(function (file, next) {
+                        stylesheets.push(file.contents);
+                        next();
+                    })).on("end", function () {
+                        if (stylesheets.length > 0) {
+                            file = file.clone({contents: false});
+                            file.path = path.join(path.dirname(file.path), [path.basename(file.path, ".js"), "css"].join("."));
+                            file.contents = Buffer.concat(stylesheets)
+
+                            if (opts.verbose) {
+                                //gutil.log("Building stylesheet", gutil.colors.cyan(file.relative), "for AngularJS module", gutil.colors.cyan(file.ngmodule));
+                            }
+
+                            stream.push(file);
+                        }
+                    });
+                })).on("end", function () {
+                    next();
+                });
+            });
         } catch (ex) {
             // Do nothing, obviously not a JavaScript file
+            next();
         }
-
-        next(null, file);
-    }, function flush(next) {
-        var stream = this,
-            paths = _.chain(files).pluck("relative").map(path.dirname);
-
-        merge(files.map(function (file) {
-            var relativeDir = path.dirname(file.relative),
-                stylesheets = [];
-
-            return fs.src([path.join("**", "*.css")].concat(excludes(paths.without(relativeDir), relativeDir)), {
-                cwd: path.dirname(file.path),
-                base: path.dirname(file.path)
-            }).pipe(map(function (file, next) {
-                stylesheets.push(file.contents);
-                next();
-            })).on("end", function () {
-                if (stylesheets.length > 0) {
-                    file.path = path.join(path.dirname(file.path), [path.basename(file.path, ".js"), "css"].join("."));
-                    file.contents = Buffer.concat(stylesheets)
-
-                    if (opts.verbose) {
-                        gutil.log("Building stylesheet", gutil.colors.cyan(file.relative), "for AngularJS module", gutil.colors.cyan(file.ngmodule));
-                    }
-
-                    stream.push(file);
-                }
-            });
-        })).on("end", function () {
-            next(null, null);
-        });
     });
 }
 
