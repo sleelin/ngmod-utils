@@ -31,53 +31,46 @@ module.exports = function (options) {
         }, options);
 
     return through.obj(function (file, enc, next) {
-        try {
-            //var target = opts.namespace.split(".").concat(_.map(path.dirname(file.relative).split(path.sep), _.capitalize)).join(".");
-            //console.log(target);
+        var stream = this;
 
+        try {
             // Parse source file contents and traverse AST, searching for angular module definitions or extensions
             astra(esprima.parse(file.contents.toString())).when({
-                type: 'CallExpression',
+                type: "CallExpression",
                 callee: {
-                    type: 'MemberExpression',
-                    object: {type: 'Identifier', name: 'angular'},
-                    property: {type: 'Identifier', name: 'module'}
+                    type: "MemberExpression",
+                    object: {type: "Identifier", name: "angular"},
+                    property: {type: "Identifier", name: "module"}
                 },
                 arguments: []
             }, function (chunk) {
                 // Get angular module definition/extension name
-                var name = _.chain(chunk.arguments).where({type: "Literal"}).pluck("value").first().value(),
-                    first = (chunk.arguments.length === 2);
-                    //deps = src.where({type: "ArrayExpression"}).pluck("elements").first().pluck("value").value();
+                var name = _.chain(chunk.arguments).where({type: "Literal"}).pluck("value").first().value();
 
-                // Add file to the array of files for the module, or create array for future files
-                if (!_.has(modules, name)) {
-                    modules[name] = [file];
+                file = _.assign(file.clone(), {ngmodule: (chunk.arguments.length === 2)});
+
+                if (file.ngmodule) gutil.log("AngularJS module", gutil.colors.cyan(name), "defined in file", gutil.colors.cyan(file.relative));
+
+                // Make sure files array exists for this module
+                if (!_.has(modules, name)) modules[name] = [];
+
+                // Update the file if it already exists, or add it to the array
+                if (_.chain(modules[name]).where({path: file.path}).value().length > 0) {
+                    modules[name][_.pluck(modules[name], "path").indexOf(file.path)] = file;
                 } else {
-                    // If this file contains the angular module definition, put it first
-                    modules[name][first ? "unshift" : "push"](file);
+                    modules[name][file.ngmodule ? "unshift" : "push"](file);
                 }
 
-                if (opts.verbose && first) {
-                    gutil.log("Detected angular module definition", gutil.colors.cyan(name), "in file", gutil.colors.cyan(file.relative));
+                if (modules[name][0].ngmodule) {
+                    file = modules[name][0].clone({contents: false});
+                    file.contents = Buffer.concat(_.pluck(modules[name], "contents"));
+                    stream.push(file);
                 }
             }).run();
-
-            next();
         } catch (ex) {
-            next(ex, null);
+            stream.push(file);
         }
-    }, function (cb) {
-        // Emit new files for each module, with concatenated contents of files referencing this module
-        _.forEach(modules, function (module) {
-            this.push(new File({
-                cwd: module[0].cwd,
-                base: module[0].base,
-                path: module[0].path,
-                contents: Buffer.concat(_.pluck(module, "contents"))
-            }));
-        }, this);
 
-        cb();
+        next();
     });
 };
