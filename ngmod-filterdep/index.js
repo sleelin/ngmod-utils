@@ -1,6 +1,6 @@
 /*
  * ngmod-filterdep
- * https://bitbucket.org/sleelin/ngmod-filterdep
+ * https://bitbucket.org/sleelin/ngmod-wiredep
  *
  * Copyright (c) 2015 S. Lee-Lindsay
  * Licensed under the GNU license.
@@ -46,11 +46,9 @@ module.exports = function () {
     }, function flush(next) {
         var files = [];
 
-        // Only accumulate dependencies that are referenced
-        modules.forEach(function (module) {
-            if (_.chain(modules).without(module).where({deps: [module.deps[0]]}).value().length) {
-                files = files.concat(module.deps);
-            }
+        // Only accumulate dependencies that are referenced from the first file
+        modules[0].deps.forEach(function (file) {
+            files = files.concat(_.chain(modules).without(modules[0]).pluck("deps").find({0: file}).filter(_.negate(_.isString)).compact().value());
         });
 
         // Emit the files
