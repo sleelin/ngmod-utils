@@ -18,13 +18,12 @@ var path = require("path"),
     _ = require("lodash");
 
 module.exports = function (options) {
-    var opts = _.merge({verbose: true}, options || {}),
+    var opts = _.merge({verbose: true, immediate: false}, options || {}),
+        stylesheets = [],
         modules = [];
 
     return through.obj(function transform(file, enc, next) {
         var stream = this;
-
-        stream.push(file);
 
         try {
             // Parse source file contents and traverse AST, searching for angular module definitions
@@ -37,49 +36,77 @@ module.exports = function (options) {
                 },
                 arguments: []
             }, function (chunk, next) {
-                if (chunk.arguments.length === 2) {
-                    modules[modules.push(file.clone({contents: false}))-1].ngmodule = chunk.arguments[0].value;
+                if ((chunk.arguments.length === 2) && (modules.indexOf(file) < 0)) {
+                    modules[modules.push(file)-1].ngmodule = chunk.arguments[0].value;
                 }
 
                 next();
             }).run(function () {
                 var paths = _.chain(modules).pluck("relative").map(path.dirname);
 
+                // Traverse
                 merge(modules.map(function (file) {
                     var relativeDir = path.dirname(file.relative),
-                        stylesheets = [];
+                        files = [];
 
-                    return fs.src([path.join("**", "*.css")].concat(excludes(paths.without(relativeDir), relativeDir)), {
+                    // Look for all CSS files which are siblings or descendants of this module
+                    return fs.src([path.join("**", "*.css")].concat(exclude(paths.without(relativeDir), relativeDir)), {
                         cwd: path.dirname(file.path),
                         base: path.dirname(file.path)
                     }).pipe(map(function (file, next) {
-                        stylesheets.push(file.contents);
+                        files.push(file.clone());
                         next();
                     })).on("end", function () {
-                        if (stylesheets.length > 0) {
+                        if (files.length > 0) {
+                            // Create the module stylesheet file
                             file = file.clone({contents: false});
                             file.path = path.join(path.dirname(file.path), [path.basename(file.path, ".js"), "css"].join("."));
-                            file.contents = Buffer.concat(stylesheets)
+                            file.contents = Buffer.concat(_.pluck(files, "contents"));
+                            file.stylesheets = files;
 
-                            if (opts.verbose) {
-                                //gutil.log("Building stylesheet", gutil.colors.cyan(file.relative), "for AngularJS module", gutil.colors.cyan(file.ngmodule));
+                            // Sometimes, streams never end
+                            if (opts.immediate) stream.push(file);
+
+                            // Update the module's file if it already exists, or add the module
+                            if (_.chain(stylesheets).pluck("path").indexOf(file.path) >= 0) {
+                                stylesheets[_.pluck(stylesheets, "path").indexOf(file.path)] = file;
+                            } else {
+                                stylesheets.push(file);
+
+                                if (opts.verbose) {
+                                    gutil.log("Building stylesheet", gutil.colors.cyan(file.relative), "for AngularJS module", gutil.colors.cyan(file.ngmodule));
+                                }
                             }
-
-                            stream.push(file);
                         }
                     });
                 })).on("end", function () {
-                    next();
+                    next(null, file);
                 });
             });
         } catch (ex) {
-            // Do nothing, obviously not a JavaScript file
+            // Not a JavaScript file, so must be a stylesheet. See if it was picked up earlier and needs updating
+            var stylesheet = _.chain(stylesheets).where({stylesheets: [{path: file.path}]}).first().value();
+            if (stylesheet !== undefined) {
+                // File is part of a module's stylesheet, replace reference and rebuild module stylesheet
+                stylesheet.stylesheets[_.pluck(stylesheet.stylesheets, "path").indexOf(file.path)] = file.clone();
+                stylesheet.contents = Buffer.concat(_.pluck(stylesheet.stylesheets, "contents"));
+
+                // Emit latest stylesheet
+                stream.push(stylesheet);
+            }
+
             next();
         }
+    }, function flush(next) {
+        _.forEach(stylesheets, function (file) {
+            this.push(file);
+        }, this);
+
+        next();
     });
 }
 
-function excludes(paths, relative) {
+function exclude(paths, relative) {
     return paths.filter(function (filepath) {
         return _.startsWith(filepath, relative);
     }).map(function (filepath) {
