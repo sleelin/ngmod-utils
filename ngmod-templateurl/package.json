@@ -1,7 +1,7 @@
 {
   "name": "ngmod-templateurl",
   "description": "Parse streamed JavaScript files for templateUrl properties (used in AngularJS directive definition objects), and emit template files with paths matching expected templateUrl",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "homepage": "https://bitbucket.org/sleelin/ngmod-templateurl",
   "private": true,
   "author": {

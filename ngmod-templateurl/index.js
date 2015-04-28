@@ -27,14 +27,13 @@ var path = require("path"),
  */
 module.exports = function (options) {
     var opts = _.merge({
-        urlbase: "",
-        verbose: true
-    }, options);
+            urlbase: "",
+            verbose: true
+        }, options),
+        templates = {};
 
     return through.obj(function (file, enc, next) {
         var stream = this;
-
-        this.push(file);
 
         try {
             // Parse source file contents and traverse AST, searching for templateUrl string literals
@@ -49,8 +48,9 @@ module.exports = function (options) {
                 }).pipe(map(function (file, next) {
                     // If sibling file matches templateUrl's filename, push it to the output stream with templateUrl's path
                     if (path.basename(file.path) === path.basename(chunk.value.value)) {
+                        templates[file.path] = path.join(file.cwd, path.relative(opts.urlbase, chunk.value.value));
                         file = file.clone();
-                        file.path = path.join(file.cwd, path.relative(opts.urlbase, chunk.value.value));
+                        file.path = templates[file.path];
 
                         if (opts.verbose) {
                             gutil.log("Detected templateUrl source for", gutil.colors.cyan(file.relative));
@@ -65,10 +65,15 @@ module.exports = function (options) {
                 });
             }).run(function () {
                 // Process next file in the stream only when the complete AST has been traversed for matches
-                next();
+                next(null, file);
             });
         } catch (ex) {
-            // Not a JavaScript file, pass down the stream
+            // Update file path for existing detected templates
+            if (templates[file.path] !== undefined) {
+                file.path = templates[file.path];
+                stream.push(file);
+            }
+
             next();
         }
     });
