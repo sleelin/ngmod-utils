@@ -17,12 +17,11 @@ var path = require("path"),
     gutil = require("gulp-util"),
     _ = require("lodash");
 
-module.exports = function (options) {
-    var opts = _.merge({verbose: true, immediate: false}, options || {}),
-        stylesheets = [],
+module.exports.create = function () {
+    var stylesheets = [],
         modules = [];
 
-    return through.obj(function transform(file, enc, next) {
+    return through.ctor({objectMode: true, verbose: true, read: true, immediate: false}, function transform(file, enc, next) {
         var stream = this;
 
         try {
@@ -54,7 +53,7 @@ module.exports = function (options) {
                         cwd: path.dirname(file.path),
                         base: path.dirname(file.path)
                     }).pipe(map(function (file, next) {
-                        files.push(file.clone());
+                        files.push(file);
                         next();
                     })).on("end", function () {
                         if (files.length > 0) {
@@ -65,16 +64,16 @@ module.exports = function (options) {
                             file.stylesheets = files;
 
                             // Sometimes, streams never end
-                            if (opts.immediate) stream.push(file);
+                            if (stream.options.immediate) stream.push(file);
 
                             // Update the module's file if it already exists, or add the module
-                            if (_.chain(stylesheets).pluck("path").indexOf(file.path) >= 0) {
+                            if (_.chain(stylesheets).where({path: file.path}).value().length > 0) {
                                 stylesheets[_.pluck(stylesheets, "path").indexOf(file.path)] = file;
                             } else {
                                 stylesheets.push(file);
 
-                                if (opts.verbose) {
-                                    gutil.log("Building stylesheet", gutil.colors.cyan(file.relative), "for AngularJS module", gutil.colors.cyan(file.ngmodule));
+                                if (stream.options.verbose && stream.options.read) {
+                                    gutil.log("Building stylesheet", gutil.colors.magenta(file.relative), "for AngularJS module", gutil.colors.cyan(file.ngmodule));
                                 }
                             }
                         }
@@ -84,21 +83,27 @@ module.exports = function (options) {
                 });
             });
         } catch (ex) {
-            // Not a JavaScript file, so must be a stylesheet. See if it was picked up earlier and needs updating
-            var stylesheet = _.chain(stylesheets).where({stylesheets: [{path: file.path}]}).first().value();
-            if (stylesheet !== undefined) {
-                // File is part of a module's stylesheet, replace reference and rebuild module stylesheet
-                stylesheet.stylesheets[_.pluck(stylesheet.stylesheets, "path").indexOf(file.path)] = file.clone();
-                stylesheet.contents = Buffer.concat(_.pluck(stylesheet.stylesheets, "contents"));
+            // Not a JavaScript file, so must be a stylesheet.
+            if (stream.options.immediate) {
+                // See if it was picked up earlier and needs updating
+                var stylesheet = _.chain(stylesheets).where({stylesheets: [{path: file.path}]}).first().value();
+                if (stylesheet !== undefined) {
+                    // File is part of a module's stylesheet, replace reference and rebuild module stylesheet
+                    stylesheet.stylesheets[_.pluck(stylesheet.stylesheets, "path").indexOf(file.path)] = file.clone();
+                    stylesheet.contents = Buffer.concat(_.pluck(stylesheet.stylesheets, "contents"));
 
-                // Emit latest stylesheet
-                stream.push(stylesheet);
+                    // Emit latest stylesheet
+                    stream.push(stylesheet);
+
+                    if (stream.options.verbose) gutil.log("Rebuilding stylesheet", gutil.colors.magenta(file.relative));
+                }
             }
 
             next();
         }
     }, function flush(next) {
-        _.forEach(stylesheets, function (file) {
+        // Flush will only run if the stream ends
+        if (!this.options.immediate) _.forEach(stylesheets, function (file) {
             this.push(file);
         }, this);
 
