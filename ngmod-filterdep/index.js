@@ -10,6 +10,7 @@ var path = require("path"),
     through = require("through2"),
     esprima = require("esprima"),
     astra = require("astra"),
+    es = require("event-stream"),
     File = require("vinyl"),
     fs = require("vinyl-fs"),
     gutil = require("gulp-util"),
@@ -44,7 +45,8 @@ module.exports = function () {
 
         next();
     }, function flush(next) {
-        var files = [];
+        var stream = this,
+            files = [];
 
         // Only accumulate dependencies that are referenced from the first file
         modules[0].deps.forEach(function (file) {
@@ -52,14 +54,21 @@ module.exports = function () {
         });
 
         // Emit the files
-        _.forEach(_.uniq(files), function (file) {
-            this.push(file);
-        }, this);
+        es.merge(_.uniq(files).map(function (file) {
+            stream.push(file);
 
-        // Always assume the first file to enter the stream is a required dependency
-        this.push(modules[0].deps[0]);
+            // Also look for stylesheets if they exist
+            return fs.src(gutil.replaceExtension(file.relative, ".css"), {cwd: file.base})
+                .pipe(through.obj(function (file, enc, next) {
+                    stream.push(file);
+                    next();
+                }))
+        })).on("end", function () {
+            // Always assume the first file to enter the stream is a required dependency
+            stream.push(modules[0].deps[0]);
 
-        next();
+            next();
+        });
     });
 };
 
