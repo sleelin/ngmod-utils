@@ -1,7 +1,7 @@
 {
   "name": "ngmod-concat",
   "description": "Parse streamed JavaScript files for AngularJS module definitions, and emit a single new file for each detected module, with concatenated contents of other files referencing the same module",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "homepage": "https://bitbucket.org/sleelin/ngmod-concat",
   "private": true,
   "author": {
