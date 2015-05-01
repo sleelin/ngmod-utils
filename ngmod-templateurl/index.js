@@ -12,7 +12,7 @@ var path = require("path"),
     astra = require("astra"),
     File = require("vinyl"),
     fs = require("vinyl-fs"),
-    map = require("map-stream"),
+    map = require("event-stream").map,
     gutil = require("gulp-util"),
     _ = require("lodash");
 
@@ -25,14 +25,10 @@ var path = require("path"),
  * @param options
  * @returns {Stream.Transform}
  */
-module.exports = function (options) {
-    var opts = _.merge({
-            urlbase: "",
-            verbose: true
-        }, options),
-        templates = {};
+module.exports.create = function () {
+    var templates = {};
 
-    return through.obj(function (file, enc, next) {
+    return through.ctor({objectMode: true, verbose: true}, function (file, enc, next) {
         var stream = this;
 
         try {
@@ -48,18 +44,19 @@ module.exports = function (options) {
                 }).pipe(map(function (file, next) {
                     // If sibling file matches templateUrl's filename, push it to the output stream with templateUrl's path
                     if (path.basename(file.path) === path.basename(chunk.value.value)) {
-                        templates[file.path] = path.join(file.cwd, path.relative(opts.urlbase, chunk.value.value));
+                        if (stream.options.verbose && !templates[file.path]) {
+                            gutil.log(gutil.colors.magenta(file.relative), "resolving to templateUrl",
+                                gutil.colors.magenta(path.relative(stream.options.urlbase, chunk.value.value)));
+                        }
+
+                        templates[file.path] = path.join(file.cwd, path.relative(stream.options.urlbase, chunk.value.value));
                         file = file.clone();
                         file.path = templates[file.path];
-
-                        if (opts.verbose) {
-                            gutil.log("Detected templateUrl source for", gutil.colors.cyan(file.relative));
-                        }
 
                         stream.push(file);
                     }
 
-                    next();
+                    next(null, file);
                 })).on("end", function () {
                     next(); // Go to next templateUrl chunk
                 });
