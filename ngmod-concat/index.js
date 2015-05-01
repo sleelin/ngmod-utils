@@ -19,18 +19,13 @@ var path = require("path"),
  * containing one or more objects with AngularJS module definitions or extensions. It will then extract the angular
  * module name from each file, and finally, emit a single new file for each detected module, with concatenated contents
  * of all files referencing the module.
- * @param options
  * @returns {Stream.Transform}
  */
 
-module.exports = function (options) {
-    var modules = {},
-        opts = _.merge({
-            verbose: true,
-            namespace: ""
-        }, options);
+module.exports.create = function () {
+    var modules = {};
 
-    return through.obj(function (file, enc, next) {
+    return through.ctor({objectMode: true, verbose: true}, function (file, enc, next) {
         var stream = this;
 
         try {
@@ -49,8 +44,6 @@ module.exports = function (options) {
 
                 file = _.assign(file.clone(), {ngmodule: (chunk.arguments.length === 2)});
 
-                if (file.ngmodule) gutil.log("AngularJS module", gutil.colors.cyan(name), "defined in file", gutil.colors.cyan(file.relative));
-
                 // Make sure files array exists for this module
                 if (!_.has(modules, name)) modules[name] = [];
 
@@ -59,6 +52,10 @@ module.exports = function (options) {
                     modules[name][_.pluck(modules[name], "path").indexOf(file.path)] = file;
                 } else {
                     modules[name][file.ngmodule ? "unshift" : "push"](file);
+
+                    if (stream.options.verbose && file.ngmodule) {
+                        gutil.log("Building file", gutil.colors.magenta(file.relative), "for AngularJS module", gutil.colors.cyan(name));
+                    }
                 }
 
                 if (modules[name][0].ngmodule) {
