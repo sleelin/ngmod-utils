@@ -56,7 +56,6 @@ module.exports = function () {
             files = _.uniq(files.concat(_.chain(modules).without(modules[0]).pluck("deps").find({0: file}).without(file).filter(_.negate(_.isString)).compact().value()))
         }
 
-        console.log(dependencies);
         // Emit the files
         es.merge(_.uniq(dependencies).map(function (file) {
             stream.push(file);
