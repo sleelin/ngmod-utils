@@ -1,7 +1,7 @@
 {
   "name": "ngmod-filterdep",
   "description": "Parse streamed JavaScript files for AngularJS module definition and dependencies, and emit only dependent files",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "homepage": "https://bitbucket.org/sleelin/ngmod-filterdep",
   "private": true,
   "author": {

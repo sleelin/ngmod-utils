@@ -46,15 +46,19 @@ module.exports = function () {
         next();
     }, function flush(next) {
         var stream = this,
-            files = [];
+            dependencies = [],
+            files = _.chain(modules[0].deps).without(modules[0].deps[0]).value(),
+            file;
 
         // Only accumulate dependencies that are referenced from the first file
-        modules[0].deps.forEach(function (file) {
-            files = files.concat(_.chain(modules).without(modules[0]).pluck("deps").find({0: file}).filter(_.negate(_.isString)).compact().value());
-        });
+        while (files.length > 0) {
+            dependencies.push(file = files.shift());
+            files = _.uniq(files.concat(_.chain(modules).without(modules[0]).pluck("deps").find({0: file}).without(file).filter(_.negate(_.isString)).compact().value()))
+        }
 
+        console.log(dependencies);
         // Emit the files
-        es.merge(_.uniq(files).map(function (file) {
+        es.merge(_.uniq(dependencies).map(function (file) {
             stream.push(file);
 
             // Also look for stylesheets if they exist
