@@ -35,15 +35,14 @@ module.exports.create = function () {
                 },
                 arguments: []
             }, function (chunk, next) {
-                if ((chunk.arguments.length === 2) && (modules.indexOf(file) < 0)) {
-                    modules[modules.push(file)-1].ngmodule = chunk.arguments[0].value;
+                if ((chunk.arguments.length === 2) && (_.chain(modules).pluck("path").value().indexOf(file.path) < 0)) {
+                    modules[modules.push(file) - 1].ngmodule = chunk.arguments[0].value;
                 }
 
                 next();
             }).run(function () {
                 var paths = _.chain(modules).pluck("relative").map(path.dirname);
 
-                // Traverse
                 merge(modules.map(function (file) {
                     var relativeDir = path.dirname(file.relative),
                         files = [];
@@ -63,9 +62,6 @@ module.exports.create = function () {
                             file.contents = Buffer.concat(_.pluck(files, "contents"));
                             file.stylesheets = files;
 
-                            // Sometimes, streams never end
-                            if (stream.options.immediate) stream.push(file);
-
                             // Update the module's file if it already exists, or add the module
                             if (_.chain(stylesheets).where({path: file.path}).value().length > 0) {
                                 stylesheets[_.pluck(stylesheets, "path").indexOf(file.path)] = file;
@@ -84,39 +80,45 @@ module.exports.create = function () {
             });
         } catch (ex) {
             // Not a JavaScript file, so must be a stylesheet.
-            if (stream.options.immediate) {
-                // See if it was picked up earlier and needs updating
-                var stylesheet = _.chain(stylesheets).where({stylesheets: [{path: file.path}]}).first().value();
-                if (stylesheet !== undefined) {
-                    // File is part of a module's stylesheet, replace reference and rebuild module stylesheet
-                    stylesheet.stylesheets[_.pluck(stylesheet.stylesheets, "path").indexOf(file.path)] = file.clone();
-                    stylesheet.contents = Buffer.concat(_.pluck(stylesheet.stylesheets, "contents"));
+            // See if it was picked up earlier and needs updating
+            findExisting(file, function (stylesheet, index) {
+                // File is part of a module's stylesheet, replace reference and rebuild module stylesheet
+                stylesheet.stylesheets[index] = file.clone();
+                stylesheet.contents = Buffer.concat(_.pluck(stylesheet.stylesheets, "contents"));
 
-                    // Emit latest stylesheet
-                    stream.push(stylesheet);
+                // Emit latest stylesheet
+                stream.push(stylesheet);
 
-                    if (stream.options.verbose) gutil.log("Rebuilding stylesheet", gutil.colors.magenta(file.relative));
-                }
-            }
+                if (stream.options.verbose) gutil.log("Rebuilding stylesheet", gutil.colors.magenta(stylesheet.relative));
+            });
 
             next();
         }
     }, function flush(next) {
         // Flush will only run if the stream ends
         if (!this.options.immediate) _.forEach(stylesheets, function (file) {
-            this.push(file);
+            if (file.stylesheets.length > 0) this.push(file);
         }, this);
 
         next();
     });
-}
 
-function exclude(paths, relative) {
-    return paths.filter(function (filepath) {
-        return _.startsWith(filepath, relative);
-    }).map(function (filepath) {
-        return path.relative(relative, filepath);
-    }).compact().map(function (filepath) {
-        return ["!", filepath, path.sep, "**"].join("");
-    }).value();
+    function findExisting(file, callback) {
+        var stylesheet = _.chain(stylesheets).where({stylesheets: [{path: file.path}]}).first().value();
+        if ((callback !== undefined) && (stylesheet !== undefined)) {
+            callback.apply(this, [stylesheet, _.pluck(stylesheet.stylesheets, "path").indexOf(file.path)]);
+        }
+
+        return stylesheet;
+    }
+
+    function exclude(paths, relative) {
+        return paths.filter(function (filepath) {
+            return _.startsWith(filepath, relative);
+        }).map(function (filepath) {
+            return path.relative(relative, filepath);
+        }).compact().map(function (filepath) {
+            return ["!", filepath, path.sep, "**"].join("");
+        }).value();
+    }
 }
