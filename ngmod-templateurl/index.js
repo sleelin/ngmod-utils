@@ -29,49 +29,53 @@ module.exports.create = function () {
     var templates = {};
 
     return through.ctor({objectMode: true, verbose: true}, function (file, enc, next) {
-        var stream = this;
+        if (gutil.isNull(file.contents) || file.contents.toString() === "") {
+            next();
+        } else {
+            var stream = this;
 
-        try {
-            // Parse source file contents and traverse AST, searching for templateUrl string literals
-            astra(esprima.parse(file.contents.toString()), true).when({
-                type: "Property",
-                key: {type: "Identifier", name: "templateUrl"}
-            }, function (chunk, next) {
-                // Look through all sibling files for one which matches templateUrl's file name
-                fs.src(path.join(path.dirname(file.path), "*"), {
-                    cwd: file.cwd,
-                    base: file.base
-                }).pipe(map(function (file, next) {
-                    // If sibling file matches templateUrl's filename, push it to the output stream with templateUrl's path
-                    if (path.basename(file.path) === path.basename(chunk.value.value)) {
-                        if (stream.options.verbose && !templates[file.path]) {
-                            gutil.log(gutil.colors.magenta(file.relative), "resolving to templateUrl",
-                                gutil.colors.magenta(path.relative(stream.options.urlbase, chunk.value.value)));
+            try {
+                // Parse source file contents and traverse AST, searching for templateUrl string literals
+                astra(esprima.parse(file.contents.toString()), true).when({
+                    type: "Property",
+                    key: {type: "Identifier", name: "templateUrl"}
+                }, function (chunk, next) {
+                    // Look through all sibling files for one which matches templateUrl's file name
+                    fs.src(path.join(path.dirname(file.path), "*"), {
+                        cwd: file.cwd,
+                        base: file.base
+                    }).pipe(map(function (file, next) {
+                        // If sibling file matches templateUrl's filename, push it to the output stream with templateUrl's path
+                        if (path.basename(file.path) === path.basename(chunk.value.value) && file.contents.toString() !== "") {
+                            if (stream.options.verbose && !templates[file.path]) {
+                                gutil.log(gutil.colors.magenta(file.relative), "resolving to templateUrl",
+                                    gutil.colors.magenta(path.relative(stream.options.urlbase, chunk.value.value)));
+                            }
+
+                            templates[file.path] = path.join(file.cwd, path.relative(stream.options.urlbase, chunk.value.value));
+                            file = file.clone();
+                            file.path = templates[file.path];
+
+                            stream.push(file);
                         }
 
-                        templates[file.path] = path.join(file.cwd, path.relative(stream.options.urlbase, chunk.value.value));
-                        file = file.clone();
-                        file.path = templates[file.path];
-
-                        stream.push(file);
-                    }
-
+                        next(null, file);
+                    })).on("end", function () {
+                        next(); // Go to next templateUrl chunk
+                    });
+                }).run(function () {
+                    // Process next file in the stream only when the complete AST has been traversed for matches
                     next(null, file);
-                })).on("end", function () {
-                    next(); // Go to next templateUrl chunk
                 });
-            }).run(function () {
-                // Process next file in the stream only when the complete AST has been traversed for matches
-                next(null, file);
-            });
-        } catch (ex) {
-            // Update file path for existing detected templates
-            if (templates[file.path] !== undefined) {
-                file.path = templates[file.path];
-                stream.push(file);
-            }
+            } catch (ex) {
+                // Update file path for existing detected templates
+                if (templates[file.path] !== undefined) {
+                    file.path = templates[file.path];
+                    stream.push(file);
+                }
 
-            next();
+                next();
+            }
         }
     });
-}
+};
