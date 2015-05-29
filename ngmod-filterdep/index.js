@@ -16,12 +16,17 @@ var path = require("path"),
     gutil = require("gulp-util"),
     _ = require("lodash");
 
-module.exports = function () {
-    var modules = [];
+module.exports = function (opts) {
+    var modules = [],
+        options = _.assign({unique: false}, opts);
 
     return through.obj(function transform(file, enc, next) {
+        var stream = this;
+
         traverse(file, function (name, deps) {
-            if (!_.some(modules, "name", name)) {
+            if (options.unique && _.some(modules, "name", name)) {
+                stream.emit("error", new Error("Duplicate module definition"));
+            } else {
                 // Find modules that depend on this module
                 _.chain(modules).where({deps: [name]}).pluck("deps").value().forEach(function (deps) {
                     // Replace the module name with this file reference
@@ -38,8 +43,6 @@ module.exports = function () {
                         return _.chain(modules).where({name: module}).pluck("deps").first().first().value() || module;
                     }).value())
                 });
-            } else {
-                next(new Error("Duplicate module definition"), file);
             }
         });
 
