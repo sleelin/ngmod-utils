@@ -22,7 +22,7 @@ module.exports.create = function () {
         modules = [];
 
     return through.ctor({objectMode: true, verbose: true, read: true, immediate: false}, function transform(file, enc, next) {
-        if (gutil.isNull(file.contents) || file.contents.toString() === "") {
+        if (file.isNull() || file.contents.toString() === "") {
             next();
         } else {
             var stream = this;
@@ -108,7 +108,7 @@ module.exports.create = function () {
     });
 
     function findExisting(file, callback) {
-        var stylesheet = _.chain(stylesheets).where({stylesheets: [{path: file.path}]}).first().value();
+        var stylesheet = _.chain(stylesheets).where({stylesheets: [{path: file.path}]}).last().value();
         if ((callback !== undefined) && (stylesheet !== undefined)) {
             callback.apply(this, [stylesheet, _.pluck(stylesheet.stylesheets, "path").indexOf(file.path)]);
         }

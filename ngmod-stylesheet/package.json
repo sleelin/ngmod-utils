@@ -1,7 +1,7 @@
 {
   "name": "ngmod-stylesheet",
   "description": "Parse streamed JavaScript files for AngularJS module definitions and emit CSS files with concatenated contents of all CSS files detected within the module directory",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "homepage": "https://bitbucket.org/sleelin/ngmod-stylesheet",
   "private": true,
   "author": {
